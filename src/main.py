@@ -1,47 +1,65 @@
 
-import os
-from pathlib import Path
+# src/main.py
 
-from dotenv import load_dotenv
-from neo4j import GraphDatabase
+from uuid import uuid4
 
-
-# Load .env from the project root, regardless of the working directory.
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(PROJECT_ROOT / ".env")
-
-URI = os.getenv("NEO4J_URI")
-USERNAME = os.getenv("NEO4J_USERNAME")
-PASSWORD = os.getenv("NEO4J_PASSWORD")
-DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+from database import Neo4jDatabase
 
 
 def main():
-    if not all([URI, USERNAME, PASSWORD]):
-        raise RuntimeError(
-            "Missing Neo4j settings. Check your local .env file."
-        )
+    db = Neo4jDatabase()
+
+    # Unique IDs let you rerun the demonstration safely.
+    run_id = uuid4().hex[:8]
+    alice_id = f"alice-{run_id}"
+    bob_id = f"bob-{run_id}"
 
     try:
-        with GraphDatabase.driver(
-            URI, auth=(USERNAME, PASSWORD)
-        ) as driver:
-            # Verify authentication and connectivity.
-            driver.verify_connectivity()
-            print("SUCCESS: Connected to Neo4j Aura!")
+        print("\nConnected successfully to Neo4j Aura!")
 
-            # Execute a read-only test query.
-            records, summary, keys = driver.execute_query(
-                "RETURN 1 AS result",
-                database_=DATABASE,
-            )
+        # 1. Create nodes
+        print("\n1. CREATE NODES")
+        print(db.create_student(
+            alice_id, "Alice", 21, "Pune"
+        ))
+        print(db.create_student(
+            bob_id, "Bob", 22, "Mumbai"
+        ))
 
-            print(f"Test query result: {records[0]['result']}")
-            print("SUCCESS: Query executed successfully.")
+        # 2. Create relationship
+        print("\n2. CREATE RELATIONSHIP")
+        print(db.create_relationship(alice_id, bob_id))
 
-    except Exception as exc:
-        print(f"Neo4j connection failed: {type(exc).__name__}")
-        raise SystemExit(1) from exc
+        # 3. Read nodes
+        print("\n3. READ STUDENTS")
+        print(db.read_students())
+
+        # 4. Search/filter
+        print("\n4. SEARCH STUDENTS BY CITY: Pune")
+        print(db.search_students_by_city("Pune"))
+
+        # 5. Update properties
+        print("\n5. UPDATE ALICE")
+        print(db.update_student(
+            alice_id, age=23, city="Bengaluru"
+        ))
+
+        print("\nVERIFY UPDATED DATA")
+        print(db.read_students())
+
+        # 6. Delete relationship
+        print("\n6. DELETE RELATIONSHIP")
+        print(db.delete_relationship(alice_id, bob_id))
+
+        # 7. Delete nodes
+        print("\n7. DELETE DEMO NODES")
+        print(db.delete_student(alice_id))
+        print(db.delete_student(bob_id))
+
+        print("\nCRUD DEMONSTRATION COMPLETED!")
+
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
